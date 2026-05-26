@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Table, Card, Select, Space, Button, Typography } from 'antd'
-import { ReloadOutlined } from '@ant-design/icons'
-import { getTasks } from '../api/task'
+import { Table, Card, Select, Space, Button, Typography, message } from 'antd'
+import { ReloadOutlined, DownloadOutlined } from '@ant-design/icons'
+import { getTasks, downloadBatchReports } from '../api/task'
 import TaskStatusTag from '../components/TaskStatusTag'
 import { useNavigate } from 'react-router-dom'
 
@@ -15,6 +15,8 @@ export default function TaskList() {
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState(null)
   const [typeFilter, setTypeFilter] = useState(null)
+  const [selectedRowKeys, setSelectedRowKeys] = useState([])
+  const [downloading, setDownloading] = useState(false)
 
   const loadData = async (p = page) => {
     setLoading(true)
@@ -33,6 +35,39 @@ export default function TaskList() {
   }
 
   useEffect(() => { loadData(1); setPage(1) }, [statusFilter, typeFilter])
+
+  const handleBatchDownload = async () => {
+    const selectedTasks = data.filter((d) => selectedRowKeys.includes(d.task_no) && d.status === 'success')
+    if (selectedTasks.length === 0) {
+      message.warning('请选择已完成的任务')
+      return
+    }
+    setDownloading(true)
+    try {
+      const blob = await downloadBatchReports(selectedRowKeys)
+      const url = window.URL.createObjectURL(new Blob([blob]))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'reports_batch.zip'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+      message.success('下载成功')
+    } catch (e) {
+      // handled by interceptor
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: (keys) => setSelectedRowKeys(keys),
+    getCheckboxProps: (record) => ({
+      disabled: record.status !== 'success',
+    }),
+  }
 
   const columns = [
     { title: '文件名', dataIndex: 'original_filename', key: 'filename', ellipsis: true },
@@ -54,6 +89,11 @@ export default function TaskList() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Title level={4} style={{ margin: 0 }}>任务列表</Title>
         <Space>
+          {selectedRowKeys.length > 0 && (
+            <Button icon={<DownloadOutlined />} loading={downloading} onClick={handleBatchDownload}>
+              批量下载 ({selectedRowKeys.length})
+            </Button>
+          )}
           <Select placeholder="状态筛选" allowClear style={{ width: 120 }} onChange={setStatusFilter}
             options={[
               { value: 'pending', label: '等待中' },
@@ -78,6 +118,7 @@ export default function TaskList() {
           dataSource={data}
           rowKey="task_no"
           loading={loading}
+          rowSelection={rowSelection}
           pagination={{
             current: page,
             total,

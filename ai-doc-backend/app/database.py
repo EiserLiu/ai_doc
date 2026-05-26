@@ -27,5 +27,5 @@ def get_db():
 
 
 def init_db():
-    from app.models import user, task, notify_config  # noqa: F401
+    from app.models import user, task, notify_config, task_log, report_template, llm_call_log  # noqa: F401
     Base.metadata.create_all(bind=engine)

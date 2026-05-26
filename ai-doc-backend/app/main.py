@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_db
-from app.api import auth, tasks, notify
+from app.api import auth, tasks, notify, templates
 from app.services import rabbitmq_service, task_service, notify_service, cache_service
 from app.database import SessionLocal
 
@@ -67,6 +67,59 @@ def handle_result_message(ch, method, properties, body):
         logger.error(f"Error processing result message: {e}")
 
 
+def handle_log_message(ch, method, properties, body):
+    """Callback for consuming log messages from RabbitMQ."""
+    try:
+        message = json.loads(body)
+        task_no = message["task_no"]
+        level = message.get("level", "INFO")
+        log_message = message.get("message", "")
+
+        db = SessionLocal()
+        try:
+            from app.models.task_log import TaskLog
+            log_entry = TaskLog(task_no=task_no, level=level, message=log_message)
+            db.add(log_entry)
+            db.commit()
+            logger.debug(f"Log saved for task {task_no}: [{level}] {log_message}")
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error(f"Error processing log message: {e}")
+
+
+def handle_cost_message(ch, method, properties, body):
+    """Callback for consuming cost messages from RabbitMQ."""
+    try:
+        message = json.loads(body)
+        task_no = message["task_no"]
+        provider = message.get("provider", "")
+        model = message.get("model", "")
+        prompt_tokens = message.get("prompt_tokens", 0)
+        completion_tokens = message.get("completion_tokens", 0)
+
+        db = SessionLocal()
+        try:
+            from app.models.llm_call_log import LlmCallLog
+            cost_entry = LlmCallLog(
+                task_no=task_no,
+                provider=provider,
+                model=model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                success=1,
+            )
+            db.add(cost_entry)
+            db.commit()
+            logger.debug(f"Cost saved for task {task_no}: {prompt_tokens}+{completion_tokens} tokens")
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error(f"Error processing cost message: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Initializing database...")
@@ -75,6 +128,12 @@ async def lifespan(app: FastAPI):
     logger.info("Starting RabbitMQ result consumer...")
     rabbitmq_service.start_result_consumer(handle_result_message)
 
+    logger.info("Starting RabbitMQ log consumer...")
+    rabbitmq_service.start_log_consumer(handle_log_message)
+
+    logger.info("Starting RabbitMQ cost consumer...")
+    rabbitmq_service.start_cost_consumer(handle_cost_message)
+
     yield
 
     logger.info("Shutting down...")
@@ -82,7 +141,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="AI 文档自动化助手 - 后端服务",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -97,6 +156,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(tasks.router)
 app.include_router(notify.router)
+app.include_router(templates.router)
 
 
 @app.get("/health")

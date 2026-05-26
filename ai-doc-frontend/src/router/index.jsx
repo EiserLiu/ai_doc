@@ -7,6 +7,7 @@ import Upload from '../pages/Upload'
 import TaskList from '../pages/TaskList'
 import TaskDetail from '../pages/TaskDetail'
 import NotifyConfig from '../pages/NotifyConfig'
+import TemplateManage from '../pages/TemplateManage'
 import useAuthStore from '../store/authStore'
 
 function PrivateRoute({ children }) {
@@ -32,6 +33,7 @@ export default function AppRouter() {
                   <Route path="/tasks" element={<TaskList />} />
                   <Route path="/tasks/:taskNo" element={<TaskDetail />} />
                   <Route path="/notify" element={<NotifyConfig />} />
+                  <Route path="/templates" element={<TemplateManage />} />
                 </Routes>
               </AppLayout>
             </PrivateRoute>

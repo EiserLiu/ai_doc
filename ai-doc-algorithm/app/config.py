@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     MINIO_SECURE: bool = False
 
     # LLM
+    LLM_PROVIDER: str = "deepseek"
     LLM_BASE_URL: str = "https://api.deepseek.com/v1"
     LLM_API_KEY: str = ""
     LLM_MODEL: str = "deepseek-chat"

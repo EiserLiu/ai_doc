@@ -90,7 +90,21 @@ def _parse_json(text: str) -> dict | None:
     return None
 
 
-def analyze(text: str, analyze_type: str) -> dict:
+def _record_cost(task_no: str, response):
+    """Record token usage via RabbitMQ."""
+    try:
+        from app.services import rabbitmq_service
+        usage = response.usage
+        if usage and task_no:
+            rabbitmq_service.send_cost_log(
+                task_no, settings.LLM_PROVIDER, settings.LLM_MODEL,
+                usage.prompt_tokens, usage.completion_tokens,
+            )
+    except Exception as e:
+        logger.warning(f"Failed to record cost: {e}")
+
+
+def analyze(text: str, analyze_type: str, task_no: str = "") -> dict:
     prompt_template = _load_prompt(analyze_type)
     prompt = prompt_template.replace("{{text}}", text)
 
@@ -101,6 +115,7 @@ def analyze(text: str, analyze_type: str) -> dict:
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
             )
+            _record_cost(task_no, response)
             raw = response.choices[0].message.content
             result = _parse_json(raw)
             if result:
@@ -114,7 +129,7 @@ def analyze(text: str, analyze_type: str) -> dict:
     raise ValueError("模型未返回合法 JSON")
 
 
-def merge_results(partials: list[dict], analyze_type: str) -> dict:
+def merge_results(partials: list[dict], analyze_type: str, task_no: str = "") -> dict:
     if len(partials) == 1:
         return partials[0]
 
@@ -130,6 +145,7 @@ def merge_results(partials: list[dict], analyze_type: str) -> dict:
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
             )
+            _record_cost(task_no, response)
             raw = response.choices[0].message.content
             result = _parse_json(raw)
             if result:

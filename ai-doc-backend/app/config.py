@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # Upload
     MAX_UPLOAD_SIZE_MB: int = 50
-    ALLOWED_EXTENSIONS: str = "pdf,docx"
+    ALLOWED_EXTENSIONS: str = "pdf,docx,xlsx"
 
     @property
     def DATABASE_URL(self) -> str:

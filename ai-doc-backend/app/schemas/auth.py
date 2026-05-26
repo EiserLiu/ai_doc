@@ -13,6 +13,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class LoginByCodeRequest(BaseModel):
+    access_code: str = Field(..., min_length=1, max_length=64)
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

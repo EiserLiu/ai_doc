@@ -6,6 +6,7 @@ import {
   BellOutlined,
   LogoutOutlined,
   FileTextOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import useAuthStore from '../store/authStore'
@@ -17,6 +18,7 @@ const menuItems = [
   { key: '/upload', icon: <UploadOutlined />, label: '上传分析' },
   { key: '/tasks', icon: <UnorderedListOutlined />, label: '任务列表' },
   { key: '/notify', icon: <BellOutlined />, label: '通知配置' },
+  { key: '/templates', icon: <AppstoreOutlined />, label: '模板管理' },
 ]
 
 export default function AppLayout({ children }) {

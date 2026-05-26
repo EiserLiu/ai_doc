@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Card, Descriptions, Typography, Button, Spin, message, Divider, List, Tag } from 'antd'
-import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons'
-import { getTaskDetail, downloadReport } from '../api/task'
+import { Card, Descriptions, Typography, Button, Spin, message, Divider, List, Tag, Timeline } from 'antd'
+import { DownloadOutlined, ReloadOutlined, RedoOutlined } from '@ant-design/icons'
+import { getTaskDetail, downloadReport, retryTask, getTaskLogs } from '../api/task'
 import TaskStatusTag from '../components/TaskStatusTag'
 
 const { Title, Paragraph, Text } = Typography
@@ -11,6 +11,8 @@ export default function TaskDetail() {
   const { taskNo } = useParams()
   const [loading, setLoading] = useState(true)
   const [task, setTask] = useState(null)
+  const [logs, setLogs] = useState([])
+  const [retrying, setRetrying] = useState(false)
 
   const loadTask = async () => {
     setLoading(true)
@@ -24,11 +26,33 @@ export default function TaskDetail() {
     }
   }
 
-  useEffect(() => { loadTask() }, [taskNo])
+  const loadLogs = async () => {
+    try {
+      const res = await getTaskLogs(taskNo)
+      setLogs(res || [])
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  const handleRetry = async () => {
+    setRetrying(true)
+    try {
+      await retryTask(taskNo)
+      message.success('已重新提交任务')
+      loadTask()
+    } catch (e) {
+      message.error('重试失败')
+    } finally {
+      setRetrying(false)
+    }
+  }
+
+  useEffect(() => { loadTask(); loadLogs() }, [taskNo])
 
   useEffect(() => {
     if (task && ['pending', 'queued', 'processing'].includes(task.status)) {
-      const timer = setInterval(loadTask, 3000)
+      const timer = setInterval(() => { loadTask(); loadLogs() }, 3000)
       return () => clearInterval(timer)
     }
   }, [task?.status])
@@ -92,7 +116,10 @@ export default function TaskDetail() {
           {task.status === 'success' && (
             <Button type="primary" icon={<DownloadOutlined />} onClick={handleDownload}>下载报告</Button>
           )}
-          <Button icon={<ReloadOutlined />} onClick={loadTask}>刷新</Button>
+          {task.status === 'failed' && (
+            <Button type="primary" danger icon={<RedoOutlined />} onClick={handleRetry} loading={retrying}>重试</Button>
+          )}
+          <Button icon={<ReloadOutlined />} onClick={() => { loadTask(); loadLogs() }}>刷新</Button>
         </Space>
       </div>
 
@@ -163,6 +190,23 @@ export default function TaskDetail() {
           <Paragraph type="secondary" style={{ fontSize: 12 }}>
             免责声明：本报告由 AI 根据上传文件自动生成，仅用于辅助整理和初步分析。涉及法律、财务、投标、政策申报等重要事项，请以原文和专业人员审核为准。
           </Paragraph>
+        </Card>
+      )}
+
+      {logs.length > 0 && (
+        <Card title="处理日志" style={{ marginTop: 16 }}>
+          <Timeline
+            items={logs.map((log) => ({
+              color: log.level === 'ERROR' ? 'red' : log.level === 'WARNING' ? 'orange' : 'blue',
+              children: (
+                <div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>{log.created_at ? new Date(log.created_at).toLocaleString('zh-CN') : ''}</Text>
+                  <br />
+                  <Text>{log.message}</Text>
+                </div>
+              ),
+            }))}
+          />
         </Card>
       )}
     </div>

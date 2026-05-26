@@ -13,12 +13,26 @@ DISCLAIMER = (
 )
 
 
-def generate(result: dict, analyze_type: str, output_format: str, task_no: str) -> bytes:
-    template_path = TEMPLATES_DIR / f"{analyze_type}_report.docx"
-    if not template_path.exists():
-        raise FileNotFoundError(f"Report template not found: {template_path}")
+def generate(result: dict, analyze_type: str, output_format: str, task_no: str, template_minio_key: str = "") -> bytes:
+    import io
+    from app.services import minio_service
+    from app.config import settings
 
-    doc = DocxTemplate(template_path)
+    if template_minio_key:
+        try:
+            template_bytes = minio_service.download_file(settings.MINIO_BUCKET, template_minio_key)
+            doc = DocxTemplate(io.BytesIO(template_bytes))
+        except Exception as e:
+            logger.warning(f"Failed to load custom template, falling back to default: {e}")
+            template_path = TEMPLATES_DIR / f"{analyze_type}_report.docx"
+            if not template_path.exists():
+                raise FileNotFoundError(f"Report template not found: {template_path}")
+            doc = DocxTemplate(template_path)
+    else:
+        template_path = TEMPLATES_DIR / f"{analyze_type}_report.docx"
+        if not template_path.exists():
+            raise FileNotFoundError(f"Report template not found: {template_path}")
+        doc = DocxTemplate(template_path)
 
     context = dict(result)
     context["disclaimer"] = DISCLAIMER

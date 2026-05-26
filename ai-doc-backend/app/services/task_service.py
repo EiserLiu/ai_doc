@@ -80,3 +80,17 @@ def list_tasks(
         .all()
     )
     return items, total
+
+
+def retry_task(db: Session, task_no: str) -> DocumentTask | None:
+    task = get_task(db, task_no)
+    if not task or task.status != "failed":
+        return None
+    task.status = "queued"
+    task.error_code = ""
+    task.error_message = ""
+    task.started_at = None
+    task.finished_at = None
+    db.commit()
+    db.refresh(task)
+    return task

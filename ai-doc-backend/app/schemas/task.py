@@ -47,3 +47,10 @@ class DownloadResponse(BaseModel):
     download_url: str
     filename: str
     expires_in: int = 3600
+
+
+class BatchTaskResult(BaseModel):
+    task_no: str = ""
+    status: str = "pending"
+    filename: str = ""
+    error: str = ""

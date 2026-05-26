@@ -67,3 +67,10 @@ def get_current_user(db: Session, token: str) -> User | None:
     if not payload:
         return None
     return db.query(User).filter(User.id == payload["user_id"]).first()
+
+
+def authenticate_by_access_code(db: Session, access_code: str) -> User | None:
+    user = db.query(User).filter(User.access_code == access_code, User.access_code != "").first()
+    if not user:
+        return None
+    return user
